@@ -46,6 +46,14 @@ auto SfaReader::create(DataArrayTsType const& data_array) -> std::unique_ptr<Sfa
     return std::unique_ptr<SfaReader>{new SfaReader{std::move(reader_result.value())}};
 }
 
+auto SfaReader::get_num_log_events_per_schema() const -> BigIntArrayTsType {
+    auto num_log_events_per_schema{emscripten::val::array()};
+    for (auto const num_log_events : m_reader.get_num_log_events_per_schema()) {
+        num_log_events_per_schema.call<void>("push", emscripten::val(num_log_events));
+    }
+    return BigIntArrayTsType{num_log_events_per_schema};
+}
+
 auto SfaReader::get_file_names() const -> StringArrayTsType {
     auto file_names{emscripten::val::array()};
     for (auto const& file_name : m_reader.get_file_names()) {
@@ -90,9 +98,25 @@ auto SfaReader::decode_all() -> LogEventArrayTsType {
     }
     return LogEventArrayTsType{decoded_events};
 }
+
+auto SfaReader::decode_next_text_chunk() -> uint64_t {
+    auto decoded_result{m_reader.decode_next_text_chunk()};
+    if (decoded_result.has_error()) {
+        auto const error{decoded_result.error()};
+        auto const err_msg{fmt::format(
+                "Failed to decode SFA archive text: {} - {}.",
+                error.category().name(),
+                error.message()
+        )};
+        SPDLOG_ERROR("{}", err_msg);
+        throw std::runtime_error{err_msg};
+    }
+    return decoded_result.value();
+}
 }  // namespace clp_ffi_js::sfa
 
 EMSCRIPTEN_BINDINGS(SfaReader) {
+    emscripten::register_type<clp_ffi_js::sfa::BigIntArrayTsType>("bigint[]");
     emscripten::register_type<clp_ffi_js::sfa::FileInfoArrayTsType>(
             "Array<{fileName: string, logEventIdxStart: bigint, logEventIdxEnd: bigint, "
             "logEventCount: bigint}>"
@@ -107,7 +131,17 @@ EMSCRIPTEN_BINDINGS(SfaReader) {
                     emscripten::return_value_policy::take_ownership()
             )
             .function("getEventCount", &clp_ffi_js::sfa::SfaReader::get_event_count)
+            .function("getNumSchemas", &clp_ffi_js::sfa::SfaReader::get_num_schemas)
+            .function(
+                    "getNumLogEventsPerSchema",
+                    &clp_ffi_js::sfa::SfaReader::get_num_log_events_per_schema
+            )
             .function("getFileNames", &clp_ffi_js::sfa::SfaReader::get_file_names)
             .function("getFileInfos", &clp_ffi_js::sfa::SfaReader::get_file_infos)
-            .function("decodeAll", &clp_ffi_js::sfa::SfaReader::decode_all);
+            .function("decodeAll", &clp_ffi_js::sfa::SfaReader::decode_all)
+            .function(
+                    "decodeNextTextChunk",
+                    &clp_ffi_js::sfa::SfaReader::decode_next_text_chunk
+            )
+            .function("getDecodedTextPtr", &clp_ffi_js::sfa::SfaReader::get_decoded_text_ptr);
 }

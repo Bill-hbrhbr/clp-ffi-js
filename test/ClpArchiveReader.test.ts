@@ -18,6 +18,7 @@ const COCKROACHDB_EXPECTED_EVENT_COUNT = 200000n;
 const COCKROACHDB_TIMESTAMP_CHECK_COUNT = 1000;
 const MAX_LOG_EVENT_INDEX_CHECKS = 1000;
 const POSTGRESQL_EXPECTED_EVENT_COUNT = 1000000n;
+const TRITON_EXPECTED_EVENT_COUNT = 1699n;
 
 /**
  *
@@ -63,6 +64,7 @@ const parseTimestampFieldToMs = (value: FieldValue): bigint | null => {
 
 describe("ClpArchiveReader", () => {
     let reader: ClpArchiveReader | null = null;
+    let reader2: ClpArchiveReader | null = null;
     let readerWoTs: ClpArchiveReader | null = null;
 
     const createReaderFromArchive = async (archiveFilename: string): Promise<ClpArchiveReader> => {
@@ -158,6 +160,43 @@ describe("ClpArchiveReader", () => {
         );
 
         expect(sum).toBe(CLP_JSON_TEST_LOG_FILES_EXPECTED_EVENT_COUNT);
+    });
+
+    it("should decode triton sfa archive text consistently", async () => {
+        reader = await createReaderFromArchive("triton.clp");
+
+        expect(reader.getEventCount()).toBe(TRITON_EXPECTED_EVENT_COUNT);
+        const logEventMessages = reader.decodeAll().map((event) => `${event.message}`);
+
+        reader2 = await createReaderFromArchive("triton.clp");
+        const readableStream = await reader2.getReadableStream();
+        const streamReader = readableStream.getReader();
+        const decoder = new TextDecoder();
+        let bufferedText = "";
+        let decodedMessageIdx = 0;
+
+        while (true) {
+            const {done, value} = await streamReader.read();
+            if (done) {
+                break;
+            }
+            bufferedText += decoder.decode(value, {stream: true});
+
+            const decodedLines = bufferedText.match(/[^\n]*\n/g) ?? [];
+            let consumedTextLength = 0;
+            for (const decodedLine of decodedLines) {
+                const decodedMessage = logEventMessages[decodedMessageIdx];
+                expect(decodedLine).toBe(decodedMessage);
+
+                consumedTextLength += decodedLine.length;
+                decodedMessageIdx += 1;
+            }
+            bufferedText = bufferedText.slice(consumedTextLength);
+        }
+        bufferedText += decoder.decode();
+
+        expect(bufferedText).toBe("");
+        expect(decodedMessageIdx).toBe(logEventMessages.length);
     });
 
     it("should throw when calling getEventCount after close", async () => {

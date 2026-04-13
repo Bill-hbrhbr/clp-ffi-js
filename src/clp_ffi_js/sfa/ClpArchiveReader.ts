@@ -4,6 +4,10 @@ import type {FileInfo} from "./types.js";
 
 import type {ClpSfaReader as WasmClpArchiveReader} from "#clp-ffi-js/node";
 
+type WasmClpArchiveReaderChunked = WasmClpArchiveReader & {
+    decodeNextTextChunk: () => bigint | number;
+    getDecodedTextPtr: () => bigint | number;
+};
 
 /**
  * A high-level wrapper around the WASM-based `ClpSfaReader` module for reading CLP single-file
@@ -32,8 +36,14 @@ class ClpArchiveReader {
      */
     static async create (dataArray: Uint8Array): Promise<ClpArchiveReader> {
         const module = await getModule();
+        const reader = new ClpArchiveReader(new module.ClpSfaReader(dataArray));
 
-        return new ClpArchiveReader(new module.ClpSfaReader(dataArray));
+        // eslint-disable-next-line no-console
+        console.info(`ClpArchiveReader initialized with ${reader.getNumSchemas()} schemas.`);
+        // eslint-disable-next-line no-console
+        console.info("ClpArchiveReader per-schema event counts:", reader.getNumLogEventsPerSchema());
+
+        return reader;
     }
 
     /**
@@ -44,6 +54,26 @@ class ClpArchiveReader {
      */
     getEventCount (): bigint {
         return this.#getWasmReader().getEventCount();
+    }
+
+    /**
+     * Gets the number of schemas in the SFA archive.
+     *
+     * @return The total schema count as a bigint.
+     * @throws {Error} If the reader has been closed.
+     */
+    getNumSchemas (): bigint {
+        return this.#getWasmReader().getNumSchemas();
+    }
+
+    /**
+     * Gets the number of log events in each schema.
+     *
+     * @return The per-schema log event counts as bigints, in schema-reader order.
+     * @throws {Error} If the reader has been closed.
+     */
+    getNumLogEventsPerSchema (): bigint[] {
+        return this.#getWasmReader().getNumLogEventsPerSchema();
     }
 
     /**
@@ -83,6 +113,44 @@ class ClpArchiveReader {
                 rawEvent.timestamp,
                 rawEvent.message
             );
+        });
+    }
+
+    /**
+     * Returns a readable stream of decoded UTF-8 chunks backed by refreshed WASM memory.
+     *
+     * Each call to the underlying `decodeAllText()` is assumed to refresh the shared WASM decode
+     * buffer and return the size of the new chunk. A returned chunk view is only valid until the
+     * next chunk is requested; consumers that need to retain chunk contents should copy it.
+     *
+     * @return A readable stream of decoded newline-delimited JSONL chunks.
+     * @throws {Error} If the reader has been closed.
+     */
+    async getReadableStream (): Promise<ReadableStream<Uint8Array>> {
+        const module = await getModule();
+        const reader = this.#getWasmReader() as WasmClpArchiveReaderChunked;
+
+        let decodeChunkTotalMs = 0;
+        let decodeChunkCount = 0;
+
+        return new ReadableStream<Uint8Array>({
+            pull: (controller) => {
+                const decodeChunkStartMs = performance.now();
+                const chunkSize = Number(reader.decodeNextTextChunk());
+                decodeChunkTotalMs += performance.now() - decodeChunkStartMs;
+                decodeChunkCount += 1;
+                if (0 === chunkSize) {
+                    // eslint-disable-next-line no-console
+                    console.info(
+                        `[clp-ffi-js] decodeNextTextChunk total: ${Math.round(decodeChunkTotalMs)} ms across ${decodeChunkCount} pulls`
+                    );
+                    controller.close();
+                    return;
+                }
+
+                const ptr = Number(reader.getDecodedTextPtr());
+                controller.enqueue(new Uint8Array(module.HEAPU8.buffer, ptr, chunkSize));
+            },
         });
     }
 

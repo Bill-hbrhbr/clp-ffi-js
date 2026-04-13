@@ -2,7 +2,7 @@
     "compilerOptions": {
         /* Build */
         "target": "es2022",
-        "lib": ["es2024"],
+        "lib": ["es2024", "dom"],
         "module": "preserve",
         "noEmit": true,
 

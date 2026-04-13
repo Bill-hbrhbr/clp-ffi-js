@@ -11,6 +11,7 @@
 #include <clp_ffi_js/binding_types.hpp>
 
 namespace clp_ffi_js::sfa {
+EMSCRIPTEN_DECLARE_VAL_TYPE(BigIntArrayTsType);
 EMSCRIPTEN_DECLARE_VAL_TYPE(FileInfoArrayTsType);
 EMSCRIPTEN_DECLARE_VAL_TYPE(LogEventArrayTsType);
 
@@ -28,11 +29,23 @@ public:
 
     [[nodiscard]] auto get_event_count() const -> uint64_t { return m_reader.get_event_count(); }
 
+    [[nodiscard]] auto get_num_schemas() const -> uint64_t {
+        return static_cast<uint64_t>(m_reader.get_num_schemas());
+    }
+
+    [[nodiscard]] auto get_num_log_events_per_schema() const -> BigIntArrayTsType;
+
     [[nodiscard]] auto get_file_names() const -> clp_ffi_js::StringArrayTsType;
 
     [[nodiscard]] auto get_file_infos() const -> FileInfoArrayTsType;
 
     [[nodiscard]] auto decode_all() -> LogEventArrayTsType;
+
+    [[nodiscard]] auto decode_next_text_chunk() -> uint64_t;
+
+    [[nodiscard]] auto get_decoded_text_ptr() const -> uint64_t {
+        return static_cast<uint64_t>(m_reader.get_decoded_text_ptr());
+    }
 
 private:
     explicit SfaReader(clp_s::ffi::sfa::ClpArchiveReader&& reader) : m_reader(std::move(reader)) {}

@@ -126,7 +126,7 @@ tasks:
         >> "{{.G_DEPS_CMAKE_SETTINGS_DIR}}/{{.G_BOOST_LIB_NAME}}.cmake"
 
   clp:
-    internal: true
+    #internal: true
     vars:
       LIB_NAME: "clp"
       OUTPUT_DIR: "{{.G_DEPS_DIR}}/{{.LIB_NAME}}"
@@ -134,9 +134,9 @@ tasks:
     cmds:
       - task: ":utils:remote:download-and-extract-tar"
         vars:
-          FILE_SHA256: "defb0df6b400a210f8367413681c0424bf028758107f97d121b20b9d5d662144"
+          FILE_SHA256: "29f14fa459dee45e0fcb5eceb18890190d47f50826df7ac99c50560d88d9ef1a"
           OUTPUT_DIR: "{{.OUTPUT_DIR}}"
-          URL: "https://github.com/y-scope/clp/archive/7f90b54.tar.gz"
+          URL: "https://github.com/Bill-hbrhbr/clp/archive/18910d0.tar.gz"
       - >-
         echo "set(
         CLP_FFI_JS_CLP_SOURCE_DIRECTORY \"{{.OUTPUT_DIR}}\"

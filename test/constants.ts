@@ -32,6 +32,9 @@ const TEST_DATA_URLS: Readonly<Record<string, string>> = {
         "https://yscope.s3.us-east-2.amazonaws.com/sample-sfa/cockroachdb_wo_ts.clp",
     "postgresql.clp":
         "https://yscope.s3.us-east-2.amazonaws.com/sample-sfa/postgresql.clp",
+    "triton.clp":
+        "https://yscope.s3.us-east-2.amazonaws.com/sample-sfa/" +
+        "dedicated_log_triton_trace_findhao__mapped.clp",
     "structured-cockroachdb.clp.zst":
         "https://yscope.s3.us-east-2.amazonaws.com/sample-logs/cockroachdb.clp.zst",
     "unstructured-yarn.clp.zst":

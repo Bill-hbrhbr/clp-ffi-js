@@ -141,6 +141,16 @@ const loadTestData = async (filename: string): Promise<Uint8Array> => {
     return fetchFile(`${TEST_DATA_WEB_BASE_PATH}${filename}`);
 };
 
+/**
+ * Loads a UTF-8 test data file as text.
+ *
+ * @param filename The name of the file in the test data directory.
+ * @return The file contents as text.
+ */
+const loadTestText = async (filename: string): Promise<string> => {
+    return new TextDecoder().decode(await loadTestData(filename));
+};
+
 
 export type {
     ClpSfaReader,
@@ -153,5 +163,6 @@ export {
     createReader,
     fetchFile,
     loadTestData,
+    loadTestText,
     readNodeFile,
 };
